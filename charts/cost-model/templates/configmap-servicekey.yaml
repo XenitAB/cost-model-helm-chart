@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cloud-service-key
+type: Opaque
+stringData:
+  service-key.json: |-
+    {
+      "subscriptionId": "{{ .Values.azure.azureSubscriptionID }}",
+      "serviceKey": {
+        "appId": "{{ .Values.azure.azureClientID }}",
+        "password": "{{ .Values.azure.azureClientPassword }}",
+        "tenant": "{{ .Values.azure.azureTenantID }}"
+      }
+    }

@@ -1,0 +1,101 @@
+{{ $fullName := include "cost-model.fullname" . }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "cost-model.fullname" . }}
+  labels:
+    {{- include "cost-model.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "cost-model.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+    {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      labels:
+        {{- include "cost-model.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ $fullName }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      volumes:
+        - name: service-key-secret
+          secret:
+            secretName: cloud-service-key
+      containers:
+        - name: cost-model
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 9003
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 9003
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 200
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          env:
+            - name: PROMETHEUS_SERVER_ENDPOINT
+              value: {{ printf "http://%s-prometheus-server" $fullName | quote }}
+            - name: CLUSTER_PROFILE
+              value: production
+            - name: GOGC
+              value: "60"
+            - name: LOG_COLLECTION_ENABLED
+              value: "false"
+            - name: PRODUCT_ANALYTICS_ENABLED
+              value: "false"
+            - name: ERROR_REPORTING_ENABLED
+              value: "false"
+            - name: VALUES_REPORTING_ENABLED
+              value: "false"
+            - name: CACHE_WARMING_ENABLED
+              value: "true"
+            - name: SAVINGS_CACHE_WARMING_ENABLED
+              value: "true"
+            - name: USE_ETL_CACHE
+              value: "true"
+            - name: ETL_ENABLED
+              value: "true"
+            - name: PV_ENABLED
+              value: "false"
+            - name: MAX_QUERY_CONCURRENCY
+              value: "5"
+            - name: UTC_OFFSET
+              value: ""
+            - name: CLUSTER_ID
+              value: "cluster-one"
+            - name: RELEASE_NAME
+              value: {{ .Release.Name }}
+            - name: KUBECOST_NAMESPACE
+              value: {{ .Release.Namespace }}
+          volumeMounts:
+            - name: service-key-secret
+              mountPath: /var/secrets
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

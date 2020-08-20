@@ -1,0 +1,92 @@
+# cost-model configuration
+
+replicaCount: 1
+
+image:
+  repository: quay.io/xenitab/cost-model
+  pullPolicy: IfNotPresent
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  annotations: {}
+
+podAnnotations:
+  ad.datadoghq.com/cost-model.check_names: '["openmetrics"]'
+  ad.datadoghq.com/cost-model.init_configs: '[{}]'
+  ad.datadoghq.com/cost-model.instances: '[{"prometheus_url":"http://%%host%%:%%port%%/metrics","namespace":"cost-model","metrics":["*"]}]'
+
+podSecurityContext:
+  fsGroup: 2000
+
+securityContext:
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1001
+  runAsGroup: 1001
+
+service:
+  type: ClusterIP
+  port: 9003
+
+resources:
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  requests:
+    cpu: "10m"
+    memory: "55M"
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+azure:
+  azureSubscriptionID: ""
+  azureClientID: ""
+  azureClientPassword: ""
+  azureTenantID: ""
+
+# Prometheus configuration
+prometheus:
+  server:
+    global:
+      scrape_interval: 1m
+      scrape_timeout: 10s
+      evaluation_interval: 1m
+      external_labels:
+        cluster_id: cluster-one
+    persistentVolume:
+      enabled: false
+    extraArgs:
+      query.max-concurrency: 1
+      query.max-samples: 100000000
+  alertmanager:
+    enabled: false
+  nodeExporter:
+    enabled: true
+  pushgateway:
+    enabled: false
+  serverFiles: 
+    rules:
+      groups:
+        - name: CPU
+          rules:
+            - expr: sum(rate(container_cpu_usage_seconds_total{container_name!=""}[5m]))
+              record: cluster:cpu_usage:rate5m
+            - expr: rate(container_cpu_usage_seconds_total{container_name!=""}[5m])
+              record: cluster:cpu_usage_nosum:rate5m
+            - expr: avg(irate(container_cpu_usage_seconds_total{container_name!="POD", container_name!=""}[5m])) by (container_name,pod_name,namespace)
+              record: kubecost_container_cpu_usage_irate
+            - expr: sum(container_memory_working_set_bytes{container_name!="POD",container_name!=""}) by (container_name,pod_name,namespace)
+              record: kubecost_container_memory_working_set_bytes
+            - expr: sum(container_memory_working_set_bytes{container_name!="POD",container_name!=""})
+              record: kubecost_cluster_memory_working_set_bytes

@@ -1,2 +1,5 @@
 # cost-model-helm-chart
-Kubecost cost-model helm chart (open source only)
+
+cost-model helm chart (open source)
+
+Note: This is just a test with Azure, use with caution.
